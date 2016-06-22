@@ -94,6 +94,11 @@ public:
 		return vec1.x_ * vec2.x_ + vec1.y_ * vec2.y_;
 	}
 
+	static Vector2 Perpendicular(const Vector2& vec)
+	{
+		return Vector2(vec.y_, -vec.x_);
+	}
+
 	// Perform a x b x c.
 	// @return A perpendicular vector of c. This vector is still on the plane of abc.
 	static Vector2 TripleCross (const Vector2& a, const Vector2& b, const Vector2& c)
