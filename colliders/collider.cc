@@ -1,0 +1,110 @@
+#include "collider.h"
+
+using namespace ysd_phy_2d;
+
+bool PolygonCollider::GJK(const PolygonCollider& collider1,
+                          const PolygonCollider& collider2)
+{
+	// Initial direction: from collider1's center to collider2's center.
+	Vector2 c1 = transform_.TransformVector(collider1.pshared_shape_->Center());
+	Vector2 c2 = transform_.TransformVector(collider2.pshared_shape_->Center());
+	Vector2 dir = c1 - c2;
+	if (dir == Vector2::kZero)
+	{
+		dir.set_x(1);
+	}
+
+	// Vertices transform from model coordinates to world coordinates.
+	const std::vector<Vector2> verts1 = collider1.pshared_shape_->vertices();
+	std::size_t size1 = verts1.size();
+	Vector2 vert_arr1[size1];
+	for (std::size_t i = 0; i < size1; ++i)
+	{
+		vert_arr1[i] = transform_.TransformVector(verts1[i]);
+	}
+
+	const std::vector<Vector2> verts2 = collider2.pshared_shape_->vertices();
+	std::size_t size2 = verts2.size();
+	Vector2 vert_arr2[size2];
+	for (std::size_t i = 0; i < size2; ++i)
+	{
+		vert_arr2[i] = transform_.TransformVector(verts2[i]);
+	}
+
+	// Simplex that used to check whether it contain the origin.
+	Vector2 simplex[3];
+	std::size_t index = 0;
+
+	// The first point along the initial direction.
+	simplex[index] = PolygonCollider::Support(vert_arr1, size1, vert_arr2, size2, dir);
+
+	if (Vector2::Dot(simplex[0], dir) <= 0)
+	{
+		return false;
+	}
+
+	// Negate the direction to make the search area larger.
+	dir = -dir;
+
+	for (;;)
+	{
+		simplex[++index] = PolygonCollider::Support(vert_arr1, size1, vert_arr2, size2, dir);
+		if (Vector2::Dot(simplex[0], dir) <= 0)
+		{
+			return false;
+		}
+
+		Vector2 ao = -simplex[index];
+
+		// New direction to search the origin.
+		if (index < 2)
+		{
+			Vector2 ab = simplex[1] - simplex[0];
+			// ab x ao will get a vector p that is perpendicular to the plane of abo,
+			// p x ab will get a vector that os perpendicular to ab.
+			dir = Vector2::TripleCross(ab, ao, ab);
+			if (dir == Vector2::kZero)
+			{
+				dir = Vector2::Perpendicular(ab);
+			}
+			continue;
+		}
+
+		Vector2 ab = simplex[1] - simplex[2];
+		Vector2 ac = simplex[0] - simplex[2];
+
+		// A vector perpendicular to ac.
+		Vector2 acp = Vector2::TripleCross(ab, ac, ac);
+		if (Vector2::Dot(acp, ao) >= 0)
+		{
+			// The origin and the acp are on the same side of ac.
+			// Set the new direction.
+			dir = acp;
+			// Retain a and c, discard b.
+			simplex[1] = simplex[2];
+			index--;
+		}
+		else
+		{
+			Vector2 abp = Vector2::TripleCross(ac, ab, ab);
+			if (Vector2::Dot(abp, ao) >= 0)
+			{
+				// The origin and abp are on the same side of ab.
+				// Set the new direction.
+				dir = abp;
+				// Retain a and b, discard c.
+				simplex[0] = simplex[1];
+				simplex[1] = simplex[2];
+				index--;
+			}
+			else
+			{
+				// The origin is contained inside the triangle abc.
+				return true;
+			}
+		}
+
+	}
+
+	return false;
+}
