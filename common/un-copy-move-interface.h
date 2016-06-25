@@ -14,8 +14,8 @@ namespace ysd_phy_2d
 class IUncopyable
 {
 protected:
-	IUncopyable();
-	~IUncopyable();
+	IUncopyable() = default;
+	virtual ~IUncopyable() = default;
 
 	// Inhibit copying.
 	IUncopyable(const IUncopyable& other) = delete;
@@ -26,8 +26,8 @@ protected:
 class IUnmovable
 {
 protected:
-	IUnmovable();
-	~IUnmovable();
+	IUnmovable() = default;
+	virtual ~IUnmovable() = default;
 
 	// Inhibit movement
 	IUnmovable(IUnmovable&& other) = delete;
@@ -37,8 +37,8 @@ protected:
 class IUnCopyMovable
 {
 protected:
-	IUnCopyMovable();
-	~IUnCopyMovable();
+	IUnCopyMovable() = default;
+	virtual ~IUnCopyMovable() = default;
 
 	// Inhibit copying.
 	IUnCopyMovable(const IUnCopyMovable& other) = delete;

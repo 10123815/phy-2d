@@ -7,6 +7,8 @@
 #define _SHAPE_H_
 
 #include <vector>
+#include <assert.h>
+
 #include "../math/vector_2.h"
 #include "../common/un-copy-move-interface.h"
 
@@ -84,7 +86,10 @@ public:
 
 	ConvexPolygon(const Vector2* vertices, std::size_t size)
 		: vertices_(vertices, vertices + size), changed_(true)
-	{}
+	{
+		// At least three points.
+		assert(size >= 3);
+	}
 
 	void ModifyVertex(const Vector2& vec, std::size_t index)
 	{

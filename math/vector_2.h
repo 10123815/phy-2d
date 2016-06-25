@@ -134,6 +134,7 @@ public:
 	static const Vector2 kUp;
 	static const Vector2 kRight;
 	static const Vector2 kDown;
+	static const Vector2 kOne;
 
 private:
 
