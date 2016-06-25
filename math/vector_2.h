@@ -16,29 +16,29 @@ class Vector2 final
 {
 
 public:
-	Vector2 () = default;
+	Vector2() = default;
 
-	Vector2 (float x, float y)
+	Vector2(float x, float y)
 		: x_(x), y_(y),
 		  length_(hypotf(x, y)), 		// √x2+y2
 		  changed_(false)
 	{}
 
-	float x () const { return x_; }
-	void set_x (float v)
+	float x() const { return x_; }
+	void set_x(float v)
 	{
 		x_ = v;
 		changed_ = true;
 	}
 
-	float y () const { return y_; }
-	void set_y (float v)
+	float y() const { return y_; }
+	void set_y(float v)
 	{
 		y_ = v;
 		changed_ = true;
 	}
 
-	float length () const
+	float length() const
 	{
 		if (changed_)
 		{
@@ -48,8 +48,14 @@ public:
 		return length_;
 	}
 
+	void Scale(const Vector2& vec2)
+	{
+		x_ *= vec2.x_;
+		y_ *= vec2.y_;
+	}
+
 	// Returns this vector with a magnitude of 1 (Read Only).
-	Vector2& Normalize ()
+	Vector2& Normalize()
 	{
 		this->operator/=(this->length());
 		return *this;
@@ -89,7 +95,7 @@ public:
 	}
 
 	// Dot Product of two vectors.
-	static float Dot (const Vector2& vec1, const Vector2& vec2)
+	static float Dot(const Vector2& vec1, const Vector2& vec2)
 	{
 		return vec1.x_ * vec2.x_ + vec1.y_ * vec2.y_;
 	}
@@ -99,9 +105,16 @@ public:
 		return Vector2(vec.y_, -vec.x_);
 	}
 
+	static float Distance(const Vector2& vec1, const Vector2& vec2)
+	{
+		float x = vec1.x_ - vec2.x_;
+		float y = vec1.y_ - vec2.y_;
+		return hypotf(x, y);
+	}
+
 	// Perform a x b x c.
 	// @return A perpendicular vector of c. This vector is still on the plane of abc.
-	static Vector2 TripleCross (const Vector2& a, const Vector2& b, const Vector2& c)
+	static Vector2 TripleCross(const Vector2& a, const Vector2& b, const Vector2& c)
 	{
 		Vector2 r;
 
