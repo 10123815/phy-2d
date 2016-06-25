@@ -22,6 +22,7 @@ namespace ysd_phy_2d
 class Shape : IUnCopyMovable
 {
 public:
+	virtual ~Shape() = default;
 	virtual const Vector2 Center() const = 0;
 };
 
@@ -46,6 +47,35 @@ private:
 	float radius_;
 
 	// Vector2 center_ = Vector2::kZero;
+};
+
+class Rectangle : public Shape
+{
+public:
+	Rectangle(Vector2 lu, Vector2 rd)
+		: left_up_(lu), right_down_(rd)
+	{}
+
+	const Vector2 Center() const override
+	{
+		return (left_up_ + right_down_) / 2;
+	}
+
+	// Get lenght and height of the square.
+	const Vector2 Size() const
+	{
+		return Vector2(right_down_.x() - left_up_.x(),
+		               left_up_.y() - right_down_.y());
+	}
+
+	float Xmin() const { return left_up_.x(); }
+	float Xmax() const { return right_down_.x(); }
+	float Ymin() const { return right_down_.y(); }
+	float Ymax() const { return left_up_.y(); }
+
+private:
+	Vector2 left_up_;
+	Vector2 right_down_;
 };
 
 class ConvexPolygon : public Shape
