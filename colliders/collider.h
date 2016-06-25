@@ -7,6 +7,7 @@
 #define _COLLIDER_H_
 
 #include <memory>
+#include <algorithm>
 #include <functional>
 
 #include "../math/vector_2.h"
@@ -17,21 +18,48 @@
 namespace ysd_phy_2d
 {
 
+// Forward declaration.
 class BaseCollider;
 class CircleCollider;
 class PolygonCollider;
+
+// Get the furthest point along the certain direction.
+std::size_t IndexOfFurthestPoint(const Vector2* vertices,
+                                 const std::size_t size,
+                                 const Vector2& dir)
+{
+	std::size_t fi = 0;
+	// Dot product of two vectors.
+	float fdot = Vector2::Dot(dir, vertices[0]);
+	for (std::size_t i = 1; i < size; ++i)
+	{
+		float dot = Vector2::Dot(dir, vertices[i]);
+		if (dot > fdot)
+		{
+			fdot = dot;
+			fi = i;
+		}
+	}
+	return fi;
+}
 
 // Minkowski sum support function for GJK.
 Vector2 Support(const Vector2* vertices1,
                 const std::size_t size1,
                 const Vector2* vertices2,
                 const std::size_t size2,
-                const Vector2& dir);
+                const Vector2& dir)
+{
+	std::size_t i = IndexOfFurthestPoint(vertices1, size1, dir);
+	std::size_t j = IndexOfFurthestPoint(vertices2, size2, -dir);
+	return vertices1[i] - vertices2[j];
+}
 
 // template function to check if two collider collide.
 template <typename CT1, typename CT2>
 bool DoCheck(const CT1& collider1, const CT2& collider2);
 
+// Check if two circle collide each other.
 template <>
 bool DoCheck(const CircleCollider& collider1, const CircleCollider& collider2);
 
@@ -39,14 +67,26 @@ bool DoCheck(const CircleCollider& collider1, const CircleCollider& collider2);
 template <>
 bool DoCheck(const PolygonCollider& collider1, const PolygonCollider& collider2);
 
-// Check if a convex polygon collider circle.
+// Check if a convex polygon collide circle.
 template <>
 bool DoCheck(const CircleCollider& collider1, const PolygonCollider& collider2);
+
+// Check if a circle collide convex polygon.
 template <>
 bool DoCheck(const PolygonCollider& collider1, const CircleCollider& collider2);
 
 // Callback when collision is detected.
 typedef std::function<void(std::shared_ptr<Collision>)> OnColliderEnter;
+
+// AABB of an arbitrary collider.
+struct Bound
+{
+	// Center of the rectangle.
+	Vector2 center;
+
+	// Length and height of the rectangle.
+	Vector2 size;
+};
 
 ////////////////////////////////////////////////////////////////
 // A BaseCollider contain a shape infomation and a transform.
@@ -64,15 +104,21 @@ class BaseCollider : IUncopyable
 {
 public:
 	BaseCollider(uint16_t id)
-		: id_(id) {}
+		: id_(id), position_(Vector2::kZero), bound_()
+	{}
 
 	uint16_t id() const { return id_; }
+
+	virtual Bound bound() const
+	{
+		return bound_;
+	}
 
 	// Check if two collider collide.
 	// @param[in] 	callback 	Callback when collision is occur.
 	virtual bool Check(std::shared_ptr<BaseCollider> collider, OnColliderEnter callback) = 0;
 
-	void Move(Vector2 position)
+	virtual void Move(const Vector2& position)
 	{
 		position_ += position;
 	}
@@ -82,6 +128,8 @@ public:
 	virtual Vector2 TransformVector(const Vector2& vec) const = 0;
 
 protected:
+
+	mutable Bound bound_;
 
 	// Transform.
 	Vector2 position_;
@@ -100,7 +148,12 @@ class CircleCollider : public BaseCollider
 public:
 	CircleCollider(uint8_t id, std::shared_ptr<Circle> c)
 		: BaseCollider(id), pshared_shape_(c)
-	{}
+	{
+		// Initailize bound.
+		bound_.center = Vector2::kZero;
+		float r = pshared_shape_->radius();
+		bound_.size = Vector2(r, r);
+	}
 
 	friend bool DoCheck<CircleCollider, CircleCollider>
 	(const CircleCollider& collider1,
@@ -109,6 +162,12 @@ public:
 	bool Check(std::shared_ptr<BaseCollider> collider, OnColliderEnter callback) override
 	{
 		return DoCheck(*this, *collider);
+	}
+
+	virtual void Move(const Vector2& position)
+	{
+		BaseCollider::Move(position);
+		bound_.center = position;
 	}
 
 	Vector2 TransformVector(const Vector2& vec) const override
@@ -130,13 +189,19 @@ protected:
 	std::shared_ptr<Circle> pshared_shape_;
 };
 
+////////////////////////////////////////////////////////////////
+// Arbitrary convex polygon collider.
+//
+////////////////////////////////////////////////////////////////
 class PolygonCollider : public BaseCollider
 {
 public:
 	PolygonCollider(uint8_t id, std::shared_ptr<ConvexPolygon> pss)
-		: BaseCollider(id), pshared_shape_(pss)
+		: BaseCollider(id), pshared_shape_(pss),
+		  scale_(Vector2::kOne), angle_(0), has_rotated_(false)
 	{}
 
+	// The generic DoCheck function is not friend.
 	// template <typename CT1, typename CT2>
 	// friend bool DoCheck(const CT1& collider1, const CT2& collider2);
 
@@ -149,46 +214,54 @@ public:
 	(const PolygonCollider& collider1,
 	 const CircleCollider& collider2);
 
-	bool Check(std::shared_ptr<BaseCollider> collider, OnColliderEnter callback) override
-	{
-		return DoCheck(*this, *collider);
-	}
-
-	Vector2 TransformVector(const Vector2& vec) const override
-	{
-		Vector2 v;
-
-		// Scale
-		float x = vec.x() * scale_.x();
-		float y = vec.y() * scale_.y();
-
-		// Rotate. [x*cosA-y*sinA  x*sinA+y*cosA]
-		x = x * cosf(angle_) - y * sinf(angle_);
-		y = y * sinf(angle_) + y * cosf(angle_);
-
-		// Move
-		x += position_.x();
-		y += position_.y();
-
-		return v;
-
-	}
-
+	// Rotate the collider anticlockwise by given angle.
 	void Rotate(float angle)
 	{
+		has_rotated_ = true;
 		angle_ += angle;
 	}
 
 	void Scale(Vector2 scale)
 	{
 		scale_.Scale(scale);
+
+		// Bound is changed, but bound points have not been changed.
+		bound_.size *= 2;
+	}
+
+	bool Check(std::shared_ptr<BaseCollider> collider, OnColliderEnter callback) override
+	{
+		return DoCheck(*this, *collider);
+	}
+
+	Vector2 TransformVector(const Vector2& vec) const override;
+
+	Bound bound() const override
+	{
+		if (has_rotated_)
+		{
+			ResetBound();
+		}
+		return bound_;
+	}
+
+	virtual void Move(const Vector2& position)
+	{
+		position_ += position;
+		bound_.center = position;
 	}
 
 protected:
 	std::shared_ptr<ConvexPolygon> pshared_shape_;
 
+	// Transform.
 	Vector2 scale_;
 	float angle_;
+
+	mutable bool has_rotated_;
+
+private:
+	void ResetBound() const;
 
 };
 

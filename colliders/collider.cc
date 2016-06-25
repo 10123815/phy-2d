@@ -2,40 +2,98 @@
 
 using namespace ysd_phy_2d;
 
-// Get the furthest point along the certain direction.
-std::size_t IndexOfFurthestPoint(const Vector2* vertices,
-                                 const std::size_t size,
-                                 const Vector2& dir)
+Vector2 PolygonCollider::TransformVector(const Vector2& vec) const
 {
-	std::size_t fi = 0;
-	// Dot product of two vectors.
-	float fdot = Vector2::Dot(dir, vertices[0]);
-	for (std::size_t i = 1; i < size; ++i)
+	Vector2 v;
+
+	// Scale
+	float x = vec.x() * scale_.x();
+	float y = vec.y() * scale_.y();
+
+	// Rotate. [x*cosA-y*sinA  x*sinA+y*cosA]
+	x = x * cosf(angle_) - y * sinf(angle_);
+	y = y * sinf(angle_) + y * cosf(angle_);
+
+	// Move
+	x += position_.x();
+	y += position_.y();
+
+	return v;
+
+}
+
+void PolygonCollider::ResetBound() const
+{
+	bound_.center = position_;
+	float xmin, xmax, ymin, ymax;
+	const std::vector<Vector2>& verts = pshared_shape_->vertices();
+	std::size_t count = verts.size();
+	std::size_t ini = 0;
+	if (count % 2 == 0)
 	{
-		float dot = Vector2::Dot(dir, vertices[i]);
-		if (dot > fdot)
+		ini = 2;
+
+		Vector2 p0 = TransformVector(verts[0]);
+		Vector2 p1 = TransformVector(verts[1]);
+
+		// Init
+		if (p0.x() <= p1.x())
 		{
-			fdot = dot;
-			fi = i;
+			xmin = p0.x();
+			xmax = p1.x();
+		}
+		else
+		{
+			xmin = p1.x();
+			xmax = p0.x();
+		}
+
+		if (p0.y() <= p1.y())
+		{
+			ymin = p0.y();
+			ymax = p1.y();
+		}
+		else
+		{
+			ymin = p1.y();
+			ymax = p0.y();
 		}
 	}
-	return fi;
-}
+	else
+	{
+		ini = 1;
 
-// Minkowski sum support function for GJK.
-Vector2 Support(const Vector2* vertices1,
-                const std::size_t size1,
-                const Vector2* vertices2,
-                const std::size_t size2,
-                const Vector2& dir)
-{
-	fuck();
-	std::size_t i = IndexOfFurthestPoint(vertices1, size1, dir);
-	std::size_t j = IndexOfFurthestPoint(vertices2, size2, -dir);
-	return vertices1[i] - vertices2[j];
-}
+		Vector2 p = TransformVector(verts[0]);
 
-int main(int argc, char const *argv[])
-{
-	
+		xmin = xmax = p.x();
+		ymin = ymax = p.y();
+	}
+
+	// Find the bound points.
+	for (std::size_t i = ini; i < count; i += 2)
+	{
+		Vector2 p0 = TransformVector(verts[ini]);
+		Vector2 p1 = TransformVector(verts[ini + 1]);
+
+		float xb = p1.x(), xs = p0.x(), yb = p1.y(), ys = p0.y();
+		if (xb < xs)
+		{
+			xb = p0.x();
+			xs = p1.x();
+		}
+		if (yb < ys)
+		{
+			yb = p0.y();
+			ys = p1.y();
+		}
+
+		xmin = std::min(xmin, xs);
+		xmax = std::max(xmax, xb);
+		ymin = std::min(ymin, ys);
+		ymax = std::max(ymax, yb);
+	}
+
+	bound_.size.set_x(xmax - xmin);
+	bound_.size.set_y(ymax - ymin);
+
 }
