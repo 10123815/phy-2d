@@ -1,6 +1,6 @@
 //////////////////////////////////////////////////////
 // @fileoverview Interface of uncopyable class and
-//				 unmovable class. If class want to 
+//				 unmovable class. If class want to
 //				 inhibt copy-construct and move-construct,
 //				 just let it inherit the class in this file.
 // @author	ysd
@@ -15,7 +15,7 @@ class IUncopyable
 {
 protected:
 	IUncopyable() = default;
-	virtual ~IUncopyable() = default;
+	~IUncopyable() = default;
 
 	// Inhibit copying.
 	IUncopyable(const IUncopyable& other) = delete;
@@ -27,7 +27,7 @@ class IUnmovable
 {
 protected:
 	IUnmovable() = default;
-	virtual ~IUnmovable() = default;
+	~IUnmovable() = default;
 
 	// Inhibit movement
 	IUnmovable(IUnmovable&& other) = delete;
@@ -38,7 +38,7 @@ class IUnCopyMovable
 {
 protected:
 	IUnCopyMovable() = default;
-	virtual ~IUnCopyMovable() = default;
+	~IUnCopyMovable() = default;
 
 	// Inhibit copying.
 	IUnCopyMovable(const IUnCopyMovable& other) = delete;
