@@ -135,6 +135,7 @@ public:
 	static const Vector2 kRight;
 	static const Vector2 kDown;
 	static const Vector2 kOne;
+	static const float kEpsinon;
 
 private:
 
@@ -143,6 +144,7 @@ private:
 	friend const Vector2 operator- (const Vector2& vec);
 	friend const Vector2 operator* (const Vector2& vec1, float m);
 	friend const bool operator== (const Vector2& vec1, const Vector2& vec2);
+	friend const bool operator< (const Vector2& vec1, const Vector2& vec2);
 
 	float x_;
 	float y_;
@@ -152,7 +154,6 @@ private:
 
 	mutable bool changed_;
 
-	static const float kEpsinon;
 };
 
 const Vector2 operator+ (const Vector2& vec1, const Vector2& vec2)
@@ -203,6 +204,16 @@ const bool operator== (const Vector2& vec1, const Vector2& vec2)
 const bool operator!= (const Vector2& vec1, const Vector2& vec2)
 {
 	return !(vec1 == vec2);
+}
+
+const bool operator< (const Vector2& vec1, const Vector2& vec2)
+{
+	return vec1.x() < vec2.x() && vec1.y() < vec2.y();
+}
+
+const bool operator> (const Vector2& vec1, const Vector2& vec2)
+{
+	return (!(vec1 < vec2)) && (vec1 != vec2);
 }
 
 }

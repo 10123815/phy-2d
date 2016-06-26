@@ -14,3 +14,4 @@ const Vector2 Vector2::kRight 	= Vector2(1, 0);
 const Vector2 Vector2::kDown 	= Vector2(0, -1);
 const Vector2 Vector2::kOne 	= Vector2(1, 1);
 const float Vector2::kEpsinon   = 0.00001f;
+
