@@ -22,58 +22,63 @@ Vector2 PolygonCollider::TransformVector(const Vector2& vec) const
 
 }
 
-void PolygonCollider::ResetBound() const
+void PolygonCollider::ResetBound(bool transformed) const
 {
-	bound_.center = position_;
 	float xmin, xmax, ymin, ymax;
 	const std::vector<Vector2>& verts = pshared_shape_->vertices();
 	std::size_t count = verts.size();
 	std::size_t ini = 0;
+	Vector2 p0;
+	Vector2 p1;
+
+	// Initialize.
 	if (count % 2 == 0)
 	{
 		ini = 2;
 
-		Vector2 p0 = TransformVector(verts[0]);
-		Vector2 p1 = TransformVector(verts[1]);
-
-		// Init
-		if (p0.x() <= p1.x())
+		if (transformed)
 		{
-			xmin = p0.x();
-			xmax = p1.x();
+			p0 = TransformVector(verts[0]);
+			p1 = TransformVector(verts[1]);
 		}
 		else
 		{
-			xmin = p1.x();
-			xmax = p0.x();
+			p0 = verts[0];
+			p1 = verts[1];
 		}
 
-		if (p0.y() <= p1.y())
-		{
-			ymin = p0.y();
-			ymax = p1.y();
-		}
-		else
-		{
-			ymin = p1.y();
-			ymax = p0.y();
-		}
+		xmin = std::min(p0.x(), p1.x());
+		xmax = std::max(p0.x(), p1.x());
+
+		ymin = std::min(p0.y(), p1.y());
+		ymax = std::max(p0.y(), p1.y());
 	}
 	else
 	{
 		ini = 1;
 
-		Vector2 p = TransformVector(verts[0]);
+		if (transformed)
+			p0 = TransformVector(verts[0]);
+		else
+			p0 = verts[0];
 
-		xmin = xmax = p.x();
-		ymin = ymax = p.y();
+		xmin = xmax = p0.x();
+		ymin = ymax = p0.y();
 	}
 
 	// Find the bound points.
 	for (std::size_t i = ini; i < count; i += 2)
 	{
-		Vector2 p0 = TransformVector(verts[ini]);
-		Vector2 p1 = TransformVector(verts[ini + 1]);
+		if (transformed)
+		{
+			p0 = TransformVector(verts[ini]);
+			p1 = TransformVector(verts[ini + 1]);
+		}
+		else
+		{
+			p0 = verts[ini];
+			p1 = verts[ini + 1];
+		}
 
 		float xb = p1.x(), xs = p0.x(), yb = p1.y(), ys = p0.y();
 		if (xb < xs)
@@ -93,7 +98,8 @@ void PolygonCollider::ResetBound() const
 		ymax = std::max(ymax, yb);
 	}
 
-	bound_.size.set_x(xmax - xmin);
-	bound_.size.set_y(ymax - ymin);
+	bound_.min = Vector2(xmin, ymin);
+	bound_.max = Vector2(xmax, ymax);
 
 }
+

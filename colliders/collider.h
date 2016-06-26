@@ -11,6 +11,7 @@
 #include <functional>
 
 #include "../math/vector_2.h"
+#include "../math/bound.h"
 #include "../common/un-copy-move-interface.h"
 #include "shape.h"
 #include "collision.h"
@@ -55,38 +56,17 @@ Vector2 Support(const Vector2* vertices1,
 	return vertices1[i] - vertices2[j];
 }
 
-// template function to check if two collider collide.
-template <typename CT1, typename CT2>
-bool DoCheck(const CT1& collider1, const CT2& collider2);
-
 // Check if two circle collide each other.
-template <>
 bool DoCheck(const CircleCollider& collider1, const CircleCollider& collider2);
 
 // Use GJK algorithm to check if two convex polygon collide each other.
-template <>
 bool DoCheck(const PolygonCollider& collider1, const PolygonCollider& collider2);
 
 // Check if a convex polygon collide circle.
-template <>
 bool DoCheck(const CircleCollider& collider1, const PolygonCollider& collider2);
-
-// Check if a circle collide convex polygon.
-template <>
-bool DoCheck(const PolygonCollider& collider1, const CircleCollider& collider2);
 
 // Callback when collision is detected.
 typedef std::function<void(std::shared_ptr<Collision>)> OnColliderEnter;
-
-// AABB of an arbitrary collider.
-struct Bound
-{
-	// Center of the rectangle.
-	Vector2 center;
-
-	// Length and height of the rectangle.
-	Vector2 size;
-};
 
 ////////////////////////////////////////////////////////////////
 // A BaseCollider contain a shape infomation and a transform.
@@ -109,23 +89,27 @@ public:
 
 	uint16_t id() const { return id_; }
 
-	virtual Bound bound() const
+	virtual const Bound& bound() const
 	{
 		return bound_;
 	}
 
-	// Check if two collider collide.
-	// @param[in] 	callback 	Callback when collision is occur.
-	virtual bool Check(std::shared_ptr<BaseCollider> collider, OnColliderEnter callback) = 0;
-
-	virtual void Move(const Vector2& position)
+	virtual void Move(const Vector2& movement)
 	{
-		position_ += position;
+		position_ += movement;
+		// Bound move follow the transfomr.
+		bound_.min += movement;
+		bound_.max += movement;
 	}
 
 	// Transform a vector/point from shape's self space to world space.
 	// @return 	The transformed vector/point.
 	virtual Vector2 TransformVector(const Vector2& vec) const = 0;
+
+	// Overload functions to check if two BaseCollider contact.
+	virtual bool Check(const BaseCollider&, OnColliderEnter callback) const = 0;
+	virtual bool Check(const CircleCollider&, OnColliderEnter callback) const = 0;
+	virtual bool Check(const PolygonCollider&, OnColliderEnter callback) const = 0;
 
 protected:
 
@@ -138,6 +122,7 @@ protected:
 
 };
 
+// Is two colliders the same one.
 const bool operator== (const BaseCollider& vec1, const BaseCollider& vec2)
 {
 	return vec1.id() == vec2.id();
@@ -150,26 +135,12 @@ public:
 		: BaseCollider(id), pshared_shape_(c)
 	{
 		// Initailize bound.
-		bound_.center = Vector2::kZero;
-		float r = pshared_shape_->radius();
-		bound_.size = Vector2(r, r);
+		Vector2 v = Vector2(Radius(), Radius());
+		bound_.min = - v;
+		bound_.max = v;
 	}
 
-	friend bool DoCheck<CircleCollider, CircleCollider>
-	(const CircleCollider& collider1,
-	 const CircleCollider& collider2);
-
-	bool Check(std::shared_ptr<BaseCollider> collider, OnColliderEnter callback) override
-	{
-		return DoCheck(*this, *collider);
-	}
-
-	virtual void Move(const Vector2& position)
-	{
-		BaseCollider::Move(position);
-		bound_.center = position;
-	}
-
+	// A circle do not have rotation and scale.
 	Vector2 TransformVector(const Vector2& vec) const override
 	{
 		return vec + position_;
@@ -185,8 +156,28 @@ public:
 		return position_;
 	}
 
+	// Overload functions to check if two BaseCollider contact.
+	bool Check(const BaseCollider& other, OnColliderEnter callback) const override
+	{
+		other.Check(*this, callback);
+	}
+	bool Check(const CircleCollider& other, OnColliderEnter callback) const override
+	{
+		DoCheck(*this, other);
+	}
+	bool Check(const PolygonCollider& other, OnColliderEnter callback) const override
+	{
+		DoCheck(*this, other);
+	}
+
 protected:
-	std::shared_ptr<Circle> pshared_shape_;
+	const std::shared_ptr<Circle> pshared_shape_;
+
+private:
+	// Do the collistion detection.
+	friend bool DoCheck(const CircleCollider& collider1, const CircleCollider& collider2);
+	friend bool DoCheck(const CircleCollider& collider1, const CircleCollider& collider2);
+
 };
 
 ////////////////////////////////////////////////////////////////
@@ -198,21 +189,15 @@ class PolygonCollider : public BaseCollider
 public:
 	PolygonCollider(uint8_t id, std::shared_ptr<ConvexPolygon> pss)
 		: BaseCollider(id), pshared_shape_(pss),
-		  scale_(Vector2::kOne), angle_(0), has_rotated_(false)
-	{}
+		  scale_(Vector2::kOne), angle_(0), has_rotated_(false)	// Transform
+	{
+		// Initailize bound.
+		ResetBound(false);
+	}
 
 	// The generic DoCheck function is not friend.
 	// template <typename CT1, typename CT2>
 	// friend bool DoCheck(const CT1& collider1, const CT2& collider2);
-
-	// Only the PolygonCollider specialization will be friend
-	friend bool DoCheck<PolygonCollider, PolygonCollider>
-	(const PolygonCollider& collider1,
-	 const PolygonCollider& collider2);
-
-	friend bool DoCheck<PolygonCollider, CircleCollider>
-	(const PolygonCollider& collider1,
-	 const CircleCollider& collider2);
 
 	// Rotate the collider anticlockwise by given angle.
 	void Rotate(float angle)
@@ -226,17 +211,16 @@ public:
 		scale_.Scale(scale);
 
 		// Bound is changed, but bound points have not been changed.
-		bound_.size *= 2;
-	}
-
-	bool Check(std::shared_ptr<BaseCollider> collider, OnColliderEnter callback) override
-	{
-		return DoCheck(*this, *collider);
+		Vector2 center = (bound_.min + bound_.max) / 2;
+		Vector2 offset = (bound_.max - center);
+		offset.Scale(scale);
+		bound_.min = center - offset;
+		bound_.max = center + offset;
 	}
 
 	Vector2 TransformVector(const Vector2& vec) const override;
 
-	Bound bound() const override
+	const Bound& bound() const override
 	{
 		if (has_rotated_)
 		{
@@ -245,14 +229,22 @@ public:
 		return bound_;
 	}
 
-	virtual void Move(const Vector2& position)
+	// Overload functions to check if two BaseCollider contact.
+	bool Check(const BaseCollider& other, OnColliderEnter callback) const override
 	{
-		position_ += position;
-		bound_.center = position;
+		other.Check(*this, callback);
+	}
+	bool Check(const CircleCollider& other, OnColliderEnter callback) const override
+	{
+		DoCheck(other, *this);
+	}
+	bool Check(const PolygonCollider& other, OnColliderEnter callback) const override
+	{
+		DoCheck(*this, other);
 	}
 
 protected:
-	std::shared_ptr<ConvexPolygon> pshared_shape_;
+	const std::shared_ptr<ConvexPolygon> pshared_shape_;
 
 	// Transform.
 	Vector2 scale_;
@@ -261,17 +253,12 @@ protected:
 	mutable bool has_rotated_;
 
 private:
-	void ResetBound() const;
+	void ResetBound(bool transformed = true) const;
 
+	// Only the PolygonCollider overload will be friend
+	friend bool DoCheck(const PolygonCollider& collider1, const PolygonCollider& collider2);
 };
 
-template <typename CT1, typename CT2>
-bool DoCheck(const CT1& collider1, const CT2& collider2)
-{
-	// TODO(ysd): Default.
-	return true;
-}
-template <>
 bool DoCheck(const PolygonCollider& collider1, const PolygonCollider& collider2)
 {
 	// Initial direction: from collider1's center to collider2's center.
@@ -378,19 +365,12 @@ bool DoCheck(const PolygonCollider& collider1, const PolygonCollider& collider2)
 	return false;
 }
 
-template <>
 bool DoCheck(const CircleCollider& collider1, const PolygonCollider& collider2)
 {
+	// TODO(ysd): polygon collide circle.
 	return true;
 }
 
-template <>
-bool DoCheck(const PolygonCollider& collider1, const CircleCollider& collider2)
-{
-	return DoCheck(collider2, collider1);
-}
-
-template <>
 bool DoCheck(const CircleCollider& collider1, const CircleCollider& collider2)
 {
 	Vector2 c1 = collider1.Center();
