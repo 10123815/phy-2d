@@ -1,6 +1,7 @@
 #ifndef _BOUND_H_
 #define _BOUND_H_
 
+#include <algorithm>
 #include "vector_2.h"
 
 namespace ysd_phy_2d
@@ -16,7 +17,7 @@ struct Bound
 	Vector2 max;
 };
 
-Bound CreateBound(Vector2 center, float length, float height)
+inline Bound CreateBound(Vector2 center, float length, float height)
 {
 	Bound b;
 	Vector2 v = Vector2(length / 2, height / 2);
@@ -26,20 +27,32 @@ Bound CreateBound(Vector2 center, float length, float height)
 
 // Space relationship of two bounds.
 // @return Return true if small is inside of big.
-bool BoundinBound(const Bound& big, const Bound& small)
+inline bool BoundinBound(const Bound& big, const Bound& small)
 {
 	return big.min < small.min && big.max > small.max;
 }
 
-bool BoundContactBound(const Bound& b1, const Bound& b2)
+inline bool BoundContactBound(const Bound& b1, const Bound& b2)
 {
-
+	float min_x = std::max(b1.min.x, b2.min.x);
+	float max_x = std::min(b1.max.x, b2.max.x);
+	if (min_x < max_x)
+	{
+		float min_y = std::max(b1.min.y, b2.min.y);
+		float max_y = std::min(b1.max.y, b2.max.y);
+		return min_y < max_y;
+	}
+	return false;
 }
 
-bool AxisCrossBound(const Bound& bound, const float value, const bool h = true)
+inline bool HorizentalAxisCrossBound(const Bound& bound, const float y)
 {
-	return (h && value < bound.max.y() && value > bound.min.y()) ||
-	       (!h && value < bound.max.x() && value > bound.min.x());
+	return y <= bound.max.y() && y >= bound.min.y();
+}
+
+inline bool VertivalAxisCrossBound(const Bound& bound, const float x)
+{
+	return x <= bound.max.x() && x >= bound.min.y();
 }
 
 }

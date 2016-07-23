@@ -11,6 +11,9 @@
 namespace ysd_phy_2d
 {
 
+/////////////////////////////////////////////////////
+// 2d vector class.
+/////////////////////////////////////////////////////
 class Vector2;
 class Vector2 final
 {
@@ -20,8 +23,8 @@ public:
 
 	Vector2(float x, float y)
 		: x_(x), y_(y),
-		  length_(hypotf(x, y)), 		// √x2+y2
-		  changed_(false)
+		length_(hypotf(x, y)), 		// √x2+y2
+		changed_(false)
 	{}
 
 	float x() const { return x_; }
@@ -156,35 +159,35 @@ private:
 
 };
 
-const Vector2 operator+ (const Vector2& vec1, const Vector2& vec2)
+inline const Vector2 operator+ (const Vector2& vec1, const Vector2& vec2)
 {
 	float x = vec1.x_ + vec2.x_;
 	float y = vec1.y_ + vec2.y_;
 	return Vector2(x, y);
 }
 
-const Vector2 operator- (const Vector2& vec1, const Vector2& vec2)
+inline const Vector2 operator- (const Vector2& vec1, const Vector2& vec2)
 {
 	float x = vec1.x_ - vec2.x_;
 	float y = vec1.y_ - vec2.y_;
 	return Vector2(x, y);
 }
 
-const Vector2 operator- (const Vector2& vec)
+inline const Vector2 operator- (const Vector2& vec)
 {
 	float x = -vec.x_;
 	float y = -vec.y_;
 	return Vector2(x, y);
 }
 
-const Vector2 operator* (const Vector2& vec, float m)
+inline const Vector2 operator* (const Vector2& vec, float m)
 {
 	float x = vec.x_ * m;
 	float y = vec.y_ * m;
 	return Vector2(x, y);
 }
 
-const Vector2 operator/ (const Vector2& vec, float d)
+inline const Vector2 operator/ (const Vector2& vec, float d)
 {
 	if (d == 0)
 		return vec;
@@ -192,26 +195,27 @@ const Vector2 operator/ (const Vector2& vec, float d)
 		return vec * (1 / d);
 }
 
-const bool operator== (const Vector2& vec1, const Vector2& vec2)
+inline const bool operator== (const Vector2& vec1, const Vector2& vec2)
 {
 	Vector2 vec = vec1 - vec2;
 	return (vec.x_ >= -Vector2::kEpsinon &&
-	        vec.x_ <= Vector2::kEpsinon &&
-	        vec.y_ >= -Vector2::kEpsinon &&
-	        vec.y_ <= Vector2::kEpsinon);
+			vec.x_ <= Vector2::kEpsinon &&
+			vec.y_ >= -Vector2::kEpsinon &&
+			vec.y_ <= Vector2::kEpsinon);
 }
 
-const bool operator!= (const Vector2& vec1, const Vector2& vec2)
+inline const bool operator!= (const Vector2& vec1, const Vector2& vec2)
 {
 	return !(vec1 == vec2);
 }
 
-const bool operator< (const Vector2& vec1, const Vector2& vec2)
+// If x/y of vec1 is both smaller than x/y of vec2, vec1 is smaller than vec2.
+inline const bool operator< (const Vector2& vec1, const Vector2& vec2)
 {
 	return vec1.x() < vec2.x() && vec1.y() < vec2.y();
 }
 
-const bool operator> (const Vector2& vec1, const Vector2& vec2)
+inline const bool operator> (const Vector2& vec1, const Vector2& vec2)
 {
 	return (!(vec1 < vec2)) && (vec1 != vec2);
 }
