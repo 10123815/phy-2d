@@ -25,9 +25,9 @@ class CircleCollider;
 class PolygonCollider;
 
 // Get the furthest point along the certain direction.
-std::size_t IndexOfFurthestPoint(const Vector2* vertices,
-                                 const std::size_t size,
-                                 const Vector2& dir)
+inline std::size_t IndexOfFurthestPoint(const Vector2* vertices,
+										const std::size_t size,
+										const Vector2& dir)
 {
 	std::size_t fi = 0;
 	// Dot product of two vectors.
@@ -45,16 +45,18 @@ std::size_t IndexOfFurthestPoint(const Vector2* vertices,
 }
 
 // Minkowski sum support function for GJK.
-Vector2 Support(const Vector2* vertices1,
-                const std::size_t size1,
-                const Vector2* vertices2,
-                const std::size_t size2,
-                const Vector2& dir)
+inline Vector2 Support(const Vector2* vertices1,
+					   const std::size_t size1,
+					   const Vector2* vertices2,
+					   const std::size_t size2,
+					   const Vector2& dir)
 {
 	std::size_t i = IndexOfFurthestPoint(vertices1, size1, dir);
 	std::size_t j = IndexOfFurthestPoint(vertices2, size2, -dir);
 	return vertices1[i] - vertices2[j];
 }
+
+#pragma region Narrow phase detection.
 
 // Check if two circle collide each other.
 bool DoCheck(const CircleCollider& collider1, const CircleCollider& collider2);
@@ -64,6 +66,8 @@ bool DoCheck(const PolygonCollider& collider1, const PolygonCollider& collider2)
 
 // Check if a convex polygon collide circle.
 bool DoCheck(const CircleCollider& collider1, const PolygonCollider& collider2);
+
+#pragma endregion
 
 // Callback when collision is detected.
 typedef std::function<void(std::shared_ptr<Collision>)> OnColliderEnter;
@@ -87,6 +91,15 @@ public:
 		: id_(id), position_(Vector2::kZero), bound_()
 	{}
 
+	BaseCollider(uint16_t id, Vector2 position)
+		: id_(id), position_(position), bound_()
+	{}
+
+	virtual ~BaseCollider()
+	{
+
+	}
+
 	uint16_t id() const { return id_; }
 
 	virtual const Bound& bound() const
@@ -104,7 +117,7 @@ public:
 
 	// Transform a vector/point from shape's self space to world space.
 	// @return 	The transformed vector/point.
-	virtual Vector2 TransformVector(const Vector2& vec) const = 0;
+	virtual const Vector2& TransformVector(const Vector2& vec) const = 0;
 
 	// Overload functions to check if two BaseCollider contact.
 	virtual bool Check(const BaseCollider&, OnColliderEnter callback) const = 0;
@@ -128,6 +141,12 @@ const bool operator== (const BaseCollider& vec1, const BaseCollider& vec2)
 	return vec1.id() == vec2.id();
 }
 
+
+///////////////////////////////////////////////////////
+// Defination of circle collider.
+// A circle collider only have translate information.
+// It can not scale or rotate.
+///////////////////////////////////////////////////////
 class CircleCollider : public BaseCollider
 {
 public:
@@ -136,12 +155,12 @@ public:
 	{
 		// Initailize bound.
 		Vector2 v = Vector2(Radius(), Radius());
-		bound_.min = - v;
+		bound_.min = -v;
 		bound_.max = v;
 	}
 
 	// A circle do not have rotation and scale.
-	Vector2 TransformVector(const Vector2& vec) const override
+	const Vector2& TransformVector(const Vector2& vec) const override
 	{
 		return vec + position_;
 	}
@@ -151,7 +170,7 @@ public:
 		return pshared_shape_->radius();
 	}
 
-	Vector2 Center() const
+	const Vector2& Center() const
 	{
 		return position_;
 	}
@@ -189,7 +208,7 @@ class PolygonCollider : public BaseCollider
 public:
 	PolygonCollider(uint8_t id, std::shared_ptr<ConvexPolygon> pss)
 		: BaseCollider(id), pshared_shape_(pss),
-		  scale_(Vector2::kOne), angle_(0), has_rotated_(false)	// Transform
+		scale_(Vector2::kOne), angle_(0), has_rotated_(false)	// Transform
 	{
 		// Initailize bound.
 		ResetBound(false);
@@ -218,7 +237,7 @@ public:
 		bound_.max = center + offset;
 	}
 
-	Vector2 TransformVector(const Vector2& vec) const override;
+	const Vector2& TransformVector(const Vector2& vec) const override;
 
 	const Bound& bound() const override
 	{
@@ -258,126 +277,6 @@ private:
 	// Only the PolygonCollider overload will be friend
 	friend bool DoCheck(const PolygonCollider& collider1, const PolygonCollider& collider2);
 };
-
-bool DoCheck(const PolygonCollider& collider1, const PolygonCollider& collider2)
-{
-	// Initial direction: from collider1's center to collider2's center.
-	Vector2 c1 = collider1.TransformVector(collider1.pshared_shape_->Center());
-	Vector2 c2 = collider2.TransformVector(collider2.pshared_shape_->Center());
-	Vector2 dir = c1 - c2;
-	if (dir == Vector2::kZero)
-	{
-		dir.set_x(1);
-	}
-
-	// Vertices transform from model coordinates to world coordinates.
-	const std::vector<Vector2> verts1 = collider1.pshared_shape_->vertices();
-	std::size_t size1 = verts1.size();
-	Vector2 vert_arr1[size1];
-	for (std::size_t i = 0; i < size1; ++i)
-	{
-		vert_arr1[i] = collider1.TransformVector(verts1[i]);
-	}
-
-	const std::vector<Vector2> verts2 = collider2.pshared_shape_->vertices();
-	std::size_t size2 = verts2.size();
-	Vector2 vert_arr2[size2];
-	for (std::size_t i = 0; i < size2; ++i)
-	{
-		vert_arr2[i] = collider2.TransformVector(verts2[i]);
-	}
-
-	// Simplex that used to check whether it contain the origin.
-	Vector2 simplex[3];
-	std::size_t index = 0;
-
-	// The first point along the initial direction.
-	simplex[index] = Support(vert_arr1, size1, vert_arr2, size2, dir);
-
-	if (Vector2::Dot(simplex[0], dir) <= 0)
-	{
-		return false;
-	}
-
-	// Negate the direction to make the search area larger.
-	dir = -dir;
-
-	for (;;)
-	{
-		simplex[++index] = Support(vert_arr1, size1, vert_arr2, size2, dir);
-		if (Vector2::Dot(simplex[0], dir) <= 0)
-		{
-			return false;
-		}
-
-		Vector2 ao = -simplex[index];
-
-		// New direction to search the origin.
-		if (index < 2)
-		{
-			Vector2 ab = simplex[1] - simplex[0];
-			// ab x ao will get a vector p that is perpendicular to the plane of abo,
-			// p x ab will get a vector that os perpendicular to ab.
-			dir = Vector2::TripleCross(ab, ao, ab);
-			if (dir == Vector2::kZero)
-			{
-				dir = Vector2::Perpendicular(ab);
-			}
-			continue;
-		}
-
-		Vector2 ab = simplex[1] - simplex[2];
-		Vector2 ac = simplex[0] - simplex[2];
-
-		// A vector perpendicular to ac.
-		Vector2 acp = Vector2::TripleCross(ab, ac, ac);
-		if (Vector2::Dot(acp, ao) >= 0)
-		{
-			// The origin and the acp are on the same side of ac.
-			// Set the new direction.
-			dir = acp;
-			// Retain a and c, discard b.
-			simplex[1] = simplex[2];
-			index--;
-		}
-		else
-		{
-			Vector2 abp = Vector2::TripleCross(ac, ab, ab);
-			if (Vector2::Dot(abp, ao) >= 0)
-			{
-				// The origin and abp are on the same side of ab.
-				// Set the new direction.
-				dir = abp;
-				// Retain a and b, discard c.
-				simplex[0] = simplex[1];
-				simplex[1] = simplex[2];
-				index--;
-			}
-			else
-			{
-				// The origin is contained inside the triangle abc.
-				return true;
-			}
-		}
-
-	}
-
-	return false;
-}
-
-bool DoCheck(const CircleCollider& collider1, const PolygonCollider& collider2)
-{
-	// TODO(ysd): polygon collide circle.
-	return true;
-}
-
-bool DoCheck(const CircleCollider& collider1, const CircleCollider& collider2)
-{
-	Vector2 c1 = collider1.Center();
-	Vector2 c2 = collider2.Center();
-	float distance = Vector2::Distance(c1, c2);
-	return distance < collider1.Radius() + collider2.Radius();
-}
 
 }
 

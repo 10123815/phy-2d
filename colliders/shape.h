@@ -36,7 +36,7 @@ public:
 	// Circle(const Circle& other) = delete;
 	// Circle(Circle&& other) = delete;
 
-	// A circle's center is at the origin.
+	// A circle's center is always at the origin.
 	const Vector2 Center() const override
 	{
 		return Vector2::kZero;
