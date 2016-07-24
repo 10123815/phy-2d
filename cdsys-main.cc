@@ -3,12 +3,15 @@
 // @author	ysd
 ////////////////////////////////////////////////////////
 
-#include "./colliders/collider.h"
-#include "./scene/quad-tree.h"
 #include <map>
 #include <memory>
 
+#include "./colliders/collider.h"
+#include "./scene/quad-tree.h"
+
 using namespace ysd_phy_2d;
+
+QuadTree g_quad_tree;
 
 ///////////////////////////////////////////////////////
 // Add a circle collider in the physics world.
@@ -17,6 +20,7 @@ void AddCircleCollider(uint16_t id, float pos_x, float pos_y, float radius)
 {
 	std::shared_ptr<Circle> pcircle_shape = std::make_shared<Circle>(radius);
 	std::shared_ptr<CircleCollider> pcircle_collider = std::make_shared<CircleCollider>(id, pcircle_collider);
+	g_quad_tree.Insert(pcircle_collider);
 }
 
 ///////////////////////////////////////////////////////
@@ -24,7 +28,6 @@ void AddCircleCollider(uint16_t id, float pos_x, float pos_y, float radius)
 ///////////////////////////////////////////////////////
 void AddRectangleCollider(uint16_t id, float min_x, float min_y, float max_x, float max_y)
 {
-
 }
 
 ///////////////////////////////////////////////////////

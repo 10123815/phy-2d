@@ -1,3 +1,8 @@
+//////////////////////////////////////////////////////
+// @fileoverview Defination of AABB bound.
+// @author	ysd
+//////////////////////////////////////////////////////
+
 #ifndef _BOUND_H_
 #define _BOUND_H_
 
@@ -17,14 +22,6 @@ struct Bound
 	Vector2 max;
 };
 
-inline Bound CreateBound(Vector2 center, float length, float height)
-{
-	Bound b;
-	Vector2 v = Vector2(length / 2, height / 2);
-	b.min = center - v;
-	b.max = center + v;
-}
-
 // Space relationship of two bounds.
 // @return Return true if small is inside of big.
 inline bool BoundinBound(const Bound& big, const Bound& small)
@@ -32,6 +29,8 @@ inline bool BoundinBound(const Bound& big, const Bound& small)
 	return big.min < small.min && big.max > small.max;
 }
 
+// Space relationship of two bounds.
+// @return Return true if two bounds were contacted.
 inline bool BoundContactBound(const Bound& b1, const Bound& b2)
 {
 	float min_x = std::max(b1.min.x, b2.min.x);
@@ -45,11 +44,13 @@ inline bool BoundContactBound(const Bound& b1, const Bound& b2)
 	return false;
 }
 
+// @return Return true if the x axis is cross the bound.
 inline bool HorizentalAxisCrossBound(const Bound& bound, const float y)
 {
 	return y <= bound.max.y() && y >= bound.min.y();
 }
 
+// @return Return true if the y axis is cross the bound.
 inline bool VertivalAxisCrossBound(const Bound& bound, const float x)
 {
 	return x <= bound.max.x() && x >= bound.min.y();
