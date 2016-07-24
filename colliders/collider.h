@@ -81,21 +81,24 @@ enum OnDetectedCallbackType
 // The shape information can be shared among not only one colliders.
 // The class include a ptr to point the shared shape information.
 //
-// The trnasform descripe the space transform of a collider.
+// The transform descripe the space transform of a collider.
 // Every collider has its own transform includes position,
 // rotation and scale. In 2d space, the rotation can represent
 // by a single angle.
+// 
+// The bound also owned by a collider. When a collider move,
+// rotate or scale, its bound need to be updated.
 //
 ////////////////////////////////////////////////////////////////
 class BaseCollider : IUncopyable
 {
 public:
 	BaseCollider(uint16_t id)
-		: id_(id), position_(Vector2::kZero), bound_()
+		:bound_(), position_(Vector2::kZero), scale_(Vector2::kOne), id_(id)
 	{}
 
 	BaseCollider(uint16_t id, Vector2 position)
-		: id_(id), position_(position), bound_()
+		:bound_(), position_(position), scale_(Vector2::kOne), id_(id)
 	{}
 
 	virtual ~BaseCollider()
@@ -107,16 +110,33 @@ public:
 
 	virtual const Bound& bound() const { return bound_; }
 
-	virtual void Move(const Vector2& movement)
+	virtual void Translate(const Vector2& movement)
 	{
 		position_ += movement;
-		// Bound move follow the transfomr.
+		// Bound move follow the transform.
 		bound_.min += movement;
 		bound_.max += movement;
 	}
 
+	virtual void ScaleFor(const Vector2& scale)
+	{
+		scale_.Scale(scale);
+
+		// Update the bound.
+		Vector2 center = (bound_.max - bound_.min) / 2;
+		Vector2 offset = center - bound_.min;
+		offset.Scale(scale);
+		bound_.min = center - offset;
+		bound_.max = center + offset;
+	}
+
+	virtual void Rotate(const float angle)
+	{
+		// Do nothing.
+	}
+
 	// Transform a vector/point from shape's self space to world space.
-	// We must to transform the collider before we use it.
+	// We must to transform the collider first in narrow phase.
 	// @return 	The transformed vector/point.
 	virtual const Vector2& TransformVector(const Vector2& vec) const = 0;
 
@@ -131,6 +151,7 @@ protected:
 
 	// Transform.
 	Vector2 position_;
+	Vector2 scale_;
 
 	uint16_t id_;
 
@@ -146,7 +167,7 @@ const bool operator== (const BaseCollider& vec1, const BaseCollider& vec2)
 ///////////////////////////////////////////////////////
 // Defination of circle collider.
 // A circle collider only have translate information.
-// It can not scale or rotate.
+// It can not rotate.
 ///////////////////////////////////////////////////////
 class CircleCollider : public BaseCollider
 {
@@ -160,6 +181,14 @@ public:
 		bound_.max = v;
 	}
 
+	void ScaleFor(const Vector2& scale) override
+	{
+		// Only need x.
+		scale_.set_x(scale.x());
+
+		// TODO(ysd): Optimize scaling of a circle.
+	}
+
 	// A circle do not have rotation and scale.
 	const Vector2& TransformVector(const Vector2& vec) const override
 	{
@@ -168,7 +197,7 @@ public:
 
 	float Radius() const
 	{
-		return pshared_shape_->radius();
+		return pshared_shape_->radius() * scale_.x();
 	}
 
 	const Vector2& Center() const
@@ -208,8 +237,7 @@ class PolygonCollider : public BaseCollider
 {
 public:
 	PolygonCollider(uint8_t id, std::shared_ptr<ConvexPolygon> pss)
-		: BaseCollider(id), pshared_shape_(pss),
-		scale_(Vector2::kOne), angle_(0), has_rotated_(false)	// Transform
+		: BaseCollider(id), pshared_shape_(pss), angle_(0)
 	{
 		// Initailize bound.
 		ResetBound(false);
@@ -222,32 +250,11 @@ public:
 	// Rotate the collider anticlockwise by given angle.
 	void Rotate(float angle)
 	{
-		has_rotated_ = true;
 		angle_ += angle;
-	}
-
-	void Scale(Vector2 scale)
-	{
-		scale_.Scale(scale);
-
-		// Bound is changed, but bound points have not been changed.
-		Vector2 center = (bound_.min + bound_.max) / 2;
-		Vector2 offset = (bound_.max - center);
-		offset.Scale(scale);
-		bound_.min = center - offset;
-		bound_.max = center + offset;
+		ResetBound();
 	}
 
 	const Vector2& TransformVector(const Vector2& vec) const override;
-
-	const Bound& bound() const override
-	{
-		if (has_rotated_)
-		{
-			ResetBound();
-		}
-		return bound_;
-	}
 
 	// Overload functions to check if two BaseCollider contact.
 	bool Check(const BaseCollider& other, OnDetectedCallback* callback) const override
@@ -267,10 +274,7 @@ protected:
 	const std::shared_ptr<ConvexPolygon> pshared_shape_;
 
 	// Transform.
-	Vector2 scale_;
 	float angle_;
-
-	mutable bool has_rotated_;
 
 private:
 	void ResetBound(bool transformed = true) const;
