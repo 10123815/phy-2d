@@ -21,6 +21,10 @@ protected:
 	IUncopyable(const IUncopyable& other) = delete;
 	IUncopyable& operator=(const IUncopyable& other) = delete;
 
+	// Allow movement.
+	IUncopyable(IUncopyable&& other) = default;
+	IUncopyable& operator=(IUncopyable&& other) = default;
+
 };
 
 class IUnmovable
@@ -28,6 +32,10 @@ class IUnmovable
 protected:
 	IUnmovable() = default;
 	~IUnmovable() = default;
+
+	// Allow copying
+	IUnmovable(const IUnmovable& other) = default;
+	IUnmovable& operator=(const IUnmovable& other) = default;
 
 	// Inhibit movement
 	IUnmovable(IUnmovable&& other) = delete;
