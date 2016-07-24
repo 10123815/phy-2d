@@ -117,8 +117,14 @@ inline bool ysd_phy_2d::DoCheck(const CircleCollider& collider1, const PolygonCo
 {
 	Vector2 center = collider1.Center();
 	// Two collider contact just need that one corner of the polygon is in the circle.
-	
-	return true;
+	const std::vector<Vector2> corners = collider2.pshared_shape_->vertices();
+	for (const Vector2& corner : corners)
+	{
+		float distance = Vector2::Distance(corner, center);
+		if (distance < collider1.Radius())
+			return true;
+	}
+	return false;
 }
 
 // Check the detection between two circle colliders.

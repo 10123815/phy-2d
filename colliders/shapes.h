@@ -1,5 +1,5 @@
 //////////////////////////////////////////////////////
-// @fileoverview Defination of 2d shape.
+// @fileoverview Defination of 2d shapes.
 // @author	ysd
 //////////////////////////////////////////////////////
 
@@ -17,7 +17,7 @@ namespace ysd_phy_2d
 
 //////////////////////////////////////////////////////
 // A Shape class descrip the shape of a collider.
-// Some colliders can share a same shape but they will
+// Some colliders can share a same shape but they may
 // have different transforms.
 // We cannot copy-construct or move-construct a Shape.
 //////////////////////////////////////////////////////
@@ -28,6 +28,10 @@ public:
 	virtual const Vector2 Center() const = 0;
 };
 
+//////////////////////////////////////////////////////
+// A circle shape own its radius but it always be
+// centered at the origin.
+//////////////////////////////////////////////////////
 class Circle : public Shape
 {
 public:

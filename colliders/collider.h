@@ -13,7 +13,7 @@
 #include "../math/vector_2.h"
 #include "../math/bound.h"
 #include "../common/un-copy-move-interface.h"
-#include "shape.h"
+#include "shapes.h"
 #include "collision.h"
 
 namespace ysd_phy_2d
@@ -56,8 +56,7 @@ inline Vector2 Support(const Vector2* vertices1,
 	return vertices1[i] - vertices2[j];
 }
 
-#pragma region Narrow phase detection.
-
+// Narrow phase detection.
 // Check if two circle collide each other.
 bool DoCheck(const CircleCollider& collider1, const CircleCollider& collider2);
 
@@ -67,10 +66,14 @@ bool DoCheck(const PolygonCollider& collider1, const PolygonCollider& collider2)
 // Check if a convex polygon collide circle.
 bool DoCheck(const CircleCollider& collider1, const PolygonCollider& collider2);
 
-#pragma endregion
-
 // Callback when collision is detected.
-typedef std::function<void(std::shared_ptr<Collision>)> OnColliderEnter;
+typedef std::function<void(std::shared_ptr<Collision>)> OnDetectedCallback;
+enum OnDetectedCallbackType
+{
+	kOnColliderEnter = 1,
+	kOnColliderStay = 2,
+	kOnColliderExit = 3
+};
 
 ////////////////////////////////////////////////////////////////
 // A BaseCollider contain a shape infomation and a transform.
@@ -102,10 +105,7 @@ public:
 
 	uint16_t id() const { return id_; }
 
-	virtual const Bound& bound() const
-	{
-		return bound_;
-	}
+	virtual const Bound& bound() const { return bound_; }
 
 	virtual void Move(const Vector2& movement)
 	{
@@ -116,13 +116,14 @@ public:
 	}
 
 	// Transform a vector/point from shape's self space to world space.
+	// We must to transform the collider before we use it.
 	// @return 	The transformed vector/point.
 	virtual const Vector2& TransformVector(const Vector2& vec) const = 0;
 
 	// Overload functions to check if two BaseCollider contact.
-	virtual bool Check(const BaseCollider&, OnColliderEnter callback) const = 0;
-	virtual bool Check(const CircleCollider&, OnColliderEnter callback) const = 0;
-	virtual bool Check(const PolygonCollider&, OnColliderEnter callback) const = 0;
+	virtual bool Check(const BaseCollider&, OnDetectedCallback* callbacks) const = 0;
+	virtual bool Check(const CircleCollider&, OnDetectedCallback* callbacks) const = 0;
+	virtual bool Check(const PolygonCollider&, OnDetectedCallback* callbacks) const = 0;
 
 protected:
 
@@ -176,15 +177,15 @@ public:
 	}
 
 	// Overload functions to check if two BaseCollider contact.
-	bool Check(const BaseCollider& other, OnColliderEnter callback) const override
+	bool Check(const BaseCollider& other, OnDetectedCallback* callback) const override
 	{
 		other.Check(*this, callback);
 	}
-	bool Check(const CircleCollider& other, OnColliderEnter callback) const override
+	bool Check(const CircleCollider& other, OnDetectedCallback* callback) const override
 	{
 		DoCheck(*this, other);
 	}
-	bool Check(const PolygonCollider& other, OnColliderEnter callback) const override
+	bool Check(const PolygonCollider& other, OnDetectedCallback* callback) const override
 	{
 		DoCheck(*this, other);
 	}
@@ -249,15 +250,15 @@ public:
 	}
 
 	// Overload functions to check if two BaseCollider contact.
-	bool Check(const BaseCollider& other, OnColliderEnter callback) const override
+	bool Check(const BaseCollider& other, OnDetectedCallback* callback) const override
 	{
 		other.Check(*this, callback);
 	}
-	bool Check(const CircleCollider& other, OnColliderEnter callback) const override
+	bool Check(const CircleCollider& other, OnDetectedCallback* callback) const override
 	{
 		DoCheck(other, *this);
 	}
-	bool Check(const PolygonCollider& other, OnColliderEnter callback) const override
+	bool Check(const PolygonCollider& other, OnDetectedCallback* callback) const override
 	{
 		DoCheck(*this, other);
 	}
@@ -275,6 +276,7 @@ private:
 	void ResetBound(bool transformed = true) const;
 
 	// Only the PolygonCollider overload will be friend
+	friend bool DoCheck(const CircleCollider& collider1, const PolygonCollider& collider2);
 	friend bool DoCheck(const PolygonCollider& collider1, const PolygonCollider& collider2);
 };
 
