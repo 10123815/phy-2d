@@ -98,7 +98,7 @@ private:
 	bool MoveNode(const std::shared_ptr<BaseCollider> collider, const Vector2 & movement, TreeNode* root);
 
 	// A collider scale.
-	bool ScaleNode(const std::shared_ptr<BaseCollider> collider, const float scale, TreeNode* root);
+	bool ScaleNode(const std::shared_ptr<BaseCollider> collider, const Vector2& scale, TreeNode* root, uint8_t deep = 0);
 
 	// A polygon collider rotate.
 	// @param[in]	deep	In how deep we find the rotated collider.

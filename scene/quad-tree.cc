@@ -36,7 +36,7 @@ bool QuadTree::InsertNode(const std::shared_ptr<BaseCollider> collider, TreeNode
 
 		// Insert the node in one of four child nodes.
 		InsertNodeInChildren(collider, root, deep);
-		
+
 	}
 	else if (deep == 0 && BoundContactBound(collider->bound, root->bound))
 	{
@@ -128,8 +128,63 @@ bool ysd_phy_2d::QuadTree::MoveNode(const std::shared_ptr<BaseCollider> collider
 	return false;
 }
 
-bool ysd_phy_2d::QuadTree::ScaleNode(const std::shared_ptr<BaseCollider> collider, const float scale, TreeNode * root)
+// @param[in]	deep	In which deep we find the rotated collider.
+bool ysd_phy_2d::QuadTree::ScaleNode(const std::shared_ptr<BaseCollider> collider, const Vector2& scale, TreeNode * root, uint8_t deep = 0)
 {
+
+	if (root == nullptr)
+		return false;
+
+	// Find the colldier in this root.
+	std::vector<std::shared_ptr<BaseCollider>>& colliders = root->colliders;
+	for (std::size_t i, length = colliders.size(); i < length; ++i)
+	{
+		if (colliders[i] == collider)
+		{
+			// Scale the collider
+			collider->ScaleFor(scale);
+
+			const Bound& root_bound = root->bound;
+			// If the collider became smaller, it may go down to the root's child nodes.
+			Vector2 center = (root_bound.max + root_bound.min) / 2;
+			if (deep < max_deep_ &&
+				!VertivalAxisCrossBound(collider->bound, center.x()) &&
+				!HorizentalAxisCrossBound(collider->bound, center.y()))
+			{
+				// The collider was already leave the root's bound's axis.
+				// It may go down into one of the four children of the root.
+				colliders.erase(colliders.cbegin() + i);
+
+				// Insert the removed collider to one of the four children.
+				return InsertNodeInChildren(collider, root, deep);
+			}
+
+			// If the collider became bigger, it may go up to the root's parent node.
+			if (!BoundinBound(root_bound, collider->bound))
+			{
+				// Reinsert the collider.
+				colliders.erase(colliders.cbegin() + i);
+				return InsertNode(collider, root_.get());
+			}
+		}
+	}
+
+
+	// Find the collider in one of the four children.
+	for (std::size_t i = 0; i < 4; i++)
+	{
+		TreeNode* child = root->children[i];
+		if (child != nullptr)
+		{
+			const Bound& big_bound = root->children[i]->bound;
+			if (BoundinBound(big_bound, collider->bound))
+			{
+				// It is here!! Find it in this child.
+				return this->ScaleNode(collider, scale, child, deep + 1);
+			}
+		}
+	}
+
 	return false;
 }
 
@@ -154,7 +209,8 @@ bool ysd_phy_2d::QuadTree::RotateNode(const std::shared_ptr<BaseCollider> collid
 			// The collider may up to the root's father node.
 			if (!BoundinBound(root_bound, collider->bound))
 			{
-				// Insert the node agina.
+				// Reinsert the node.
+				colliders.erase(colliders.cbegin() + i);
 				return InsertNode(collider, root_.get());
 			}
 
@@ -164,7 +220,6 @@ bool ysd_phy_2d::QuadTree::RotateNode(const std::shared_ptr<BaseCollider> collid
 				!VertivalAxisCrossBound(collider->bound, center.x()) &&
 				!HorizentalAxisCrossBound(collider->bound, center.y()))
 			{
-
 				// The collider was already leave the root's bound's axis.
 				// It may go down into one of the four children of the root.
 				colliders.erase(colliders.cbegin() + i);
@@ -186,7 +241,7 @@ bool ysd_phy_2d::QuadTree::RotateNode(const std::shared_ptr<BaseCollider> collid
 			if (BoundinBound(big_bound, collider->bound))
 			{
 				// It is here!! Find it in this child.
-				return this->RotateNode(collider, angle, child);
+				return this->RotateNode(collider, angle, child, deep + 1);
 			}
 		}
 	}
