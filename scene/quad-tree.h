@@ -52,6 +52,7 @@ public:
 		root_->bound.min = center - max;
 	}
 
+	// The defalut center is zeor.
 	QuadTree(float width, float length, uint8_t deep = 8)
 		:root_(new TreeNode), max_deep_(deep)
 	{
@@ -77,10 +78,18 @@ public:
 	// @param[in]	bound	The collider's AABB bound.
 	void Remove(uint16_t id, const Bound& bound);
 
-	void set_max_deep(uint8_t value) { max_deep_ = value; }
+	void set_max_deep(uint8_t value)
+	{
+		max_deep_ = value;
+	}
+
+	uint8_t max_deep() const
+	{
+		return max_deep_;
+	}
 
 private:
-	void InsertNode(const std::shared_ptr<BaseCollider> collider, TreeNode* root, uint8_t deep = 0);
+	bool InsertNode(const std::shared_ptr<BaseCollider> collider, TreeNode* root, uint8_t deep = 0);
 
 	// If remove the node successful, return true.
 	bool RemoveNode(uint16_t id, const Bound& bound, TreeNode* root);
@@ -92,7 +101,11 @@ private:
 	bool ScaleNode(const std::shared_ptr<BaseCollider> collider, const float scale, TreeNode* root);
 
 	// A polygon collider rotate.
-	bool RotateNode(const std::shared_ptr<PolygonCollider> collider, const float angle, TreeNode* root);
+	// @param[in]	deep	In how deep we find the rotated collider.
+	bool RotateNode(const std::shared_ptr<BaseCollider> collider, const float angle, TreeNode* root, uint8_t deep = 0);
+
+	// Insert new collider in one of the four children.
+	bool InsertNodeInChildren(const std::shared_ptr<ysd_phy_2d::BaseCollider> collider, TreeNode* root, uint8_t deep);
 
 	// Create bound for four quadrants.
 	// @param[in]	qr 	[0, 3].
@@ -103,6 +116,7 @@ private:
 
 	std::unique_ptr<TreeNode> root_;
 
+	// Start from zero.
 	uint8_t max_deep_;
 
 };

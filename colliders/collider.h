@@ -248,7 +248,7 @@ public:
 	// friend bool DoCheck(const CT1& collider1, const CT2& collider2);
 
 	// Rotate the collider anticlockwise by given angle.
-	void Rotate(float angle)
+	void Rotate(float angle) override
 	{
 		angle_ += angle;
 		ResetBound();
